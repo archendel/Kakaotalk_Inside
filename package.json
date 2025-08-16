@@ -1,0 +1,18 @@
+{
+  "name": "shared-board",
+  "version": "1.0.0",
+  "description": "Open board: mobile-first shared bulletin (Node.js + Express + SQLite)",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "NODE_ENV=development node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "sqlite3": "^5.1.7"
+  }
+}
