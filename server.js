@@ -19,7 +19,7 @@ app.use(
       directives: {
         "default-src": ["'self'"],
         "img-src": ["'self'", 'data:'],
-        "script-src": ["'self'"],
+        "script-src": ["'self'", "'unsafe-inline'"],  // ✅ 수정
         "style-src": ["'self'", "'unsafe-inline'"],
         "connect-src": ["'self'"]
       }
