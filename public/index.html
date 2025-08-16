@@ -154,10 +154,27 @@
       board.appendChild(frag);
     }
 
-    function openSheet(){ sheet.classList.add('open'); sheet.setAttribute('aria-hidden','false'); backdrop.classList.add('show'); backdrop.setAttribute('aria-hidden','false'); setTimeout(()=>titleInput.focus(),50); }
-    function closeSheet(){ sheet.classList.remove('open'); sheet.setAttribute('aria-hidden','true'); backdrop.classList.remove('show'); backdrop.setAttribute('aria-hidden','true'); form.reset(); autosize(); }
+    function openSheet(){
+      sheet.classList.add('open');
+      sheet.setAttribute('aria-hidden','false');
+      backdrop.classList.add('show');
+      backdrop.setAttribute('aria-hidden','false');
+      setTimeout(()=>titleInput.focus(),50);
+    }
 
-    fab.addEventListener('click', openSheet);
+    function closeSheet(){
+      sheet.classList.remove('open');
+      sheet.setAttribute('aria-hidden','true');
+      backdrop.classList.remove('show');
+      backdrop.setAttribute('aria-hidden','true');
+      form.reset();
+      // autosize(); ← 삭제됨
+    }
+
+    fab.addEventListener('click', ()=>{
+      console.log("연필 버튼 클릭됨");
+      openSheet();
+    });
     backdrop.addEventListener('click', closeSheet);
     cancelBtn.addEventListener('click', closeSheet);
 
