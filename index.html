@@ -129,7 +129,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // 🔹 여기를 본인 Firebase 설정으로 바꿔주세요
+    // 🔹 Firebase 설정
     const firebaseConfig = {
       apiKey: "AIzaSyBr3Z2Af6ee4Ag1NQYTm-ooUeqOOnuEu3I",
       authDomain: "open-board-448e0.firebaseapp.com",
@@ -201,7 +201,29 @@
     fab.addEventListener('click',openSheet);
     backdrop.addEventListener('click',()=>{closeSheet();closeView();});
     cancelBtn.addEventListener('click',closeSheet);
-    form.addEventListener('submit',e=>{e.preventDefault();const t=titleInput.value.trim(),n=nickInput.value.trim(),c=contentInput.value.trim();if(!t||!n||!c)return;addPost(t,n,c);closeSheet();});
+
+    // 🔹 제목/닉네임 글자수 제한 (25자)
+    titleInput.addEventListener("input", () => {
+      if (titleInput.value.length > 25) {
+        titleInput.value = titleInput.value.slice(0, 25);
+        showToast("제목은 최대 25자까지 입력 가능합니다.");
+      }
+    });
+
+    nickInput.addEventListener("input", () => {
+      if (nickInput.value.length > 25) {
+        nickInput.value = nickInput.value.slice(0, 25);
+        showToast("닉네임은 최대 25자까지 입력 가능합니다.");
+      }
+    });
+
+    form.addEventListener('submit',e=>{
+      e.preventDefault();
+      const t=titleInput.value.trim(), n=nickInput.value.trim(), c=contentInput.value.trim();
+      if(!t||!n||!c)return;
+      addPost(t,n,c);
+      closeSheet();
+    });
 
     function showToast(msg){toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1600);}
 
