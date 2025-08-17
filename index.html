@@ -243,7 +243,7 @@
       if (!pw) return;
 
       try {
-        const res = await fetch("/api/deletePost", {
+        const res = await fetch("kakaotalk-inside.vercel.app/api/deletePost", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ postId: currentPostId, password: pw }),
