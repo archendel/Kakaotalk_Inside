@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>오픈 보드 (Firebase)</title>
+  <style>
+    :root {
+      --bg: #0b0c10;
+      --panel: #111318;
+      --card: #151821;
+      --muted: #9aa4b2;
+      --text: #e6eaf0;
+      --accent: #4f46e5;
+      --accent-2: #22c55e;
+      --ring: rgba(79,70,229,0.4);
+      --shadow: 0 10px 30px rgba(0,0,0,0.3);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin:0; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; }
+    body { background: linear-gradient(180deg, #0b0c10 0%, #0d0f15 100%); color: var(--text); }
+
+    header { position: sticky; top: 0; z-index: 30;
+      backdrop-filter: saturate(180%) blur(10px);
+      background: color-mix(in oklab, var(--panel) 80%, transparent);
+      border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 16px; }
+
+    .board { display:grid; gap: 12px; padding: 16px 4px 96px; }
+    .empty { text-align:center; color: var(--muted); padding: 48px 16px; border: 1px dashed rgba(255,255,255,0.12); border-radius: var(--radius); }
+    .card { background: color-mix(in oklab, var(--card) 92%, transparent);
+      border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); cursor: pointer; }
+    .title { font-size: 16px; font-weight: 700; }
+    .meta { font-size: 12px; color: var(--muted); display:flex; justify-content:space-between; }
+
+    /* FAB */
+    .fab { position: fixed; right: 18px; bottom: 24px; width: 60px; height: 60px; border-radius: 999rem;
+      background: linear-gradient(135deg, var(--accent), #7c3aed); color: white; border: none;
+      display:grid; place-items:center; box-shadow: var(--shadow); z-index:50; }
+
+    /* backdrop */
+    .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 60; }
+    .backdrop.show { opacity: 1; pointer-events: auto; }
+
+    /* 글쓰기 모달 중앙 */
+    .sheet { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      z-index: 70; display: none; width: 95%; max-width: 800px; max-height: 90vh; }
+    .sheet.open { display: block; }
+    .sheet-inner { width: 100%; height: 100%; padding: 20px;
+      background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow);
+      display: flex; flex-direction: column; }
+    .sheet-inner form { flex:1; display:flex; flex-direction:column; }
+    .sheet-inner input, .sheet-inner textarea { margin-bottom:12px; }
+
+    /* 글 보기 모달 */
+    .modal-view { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      z-index: 80; max-width: 700px; width: 90%; background: var(--panel);
+      border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; display:none; flex-direction:column; }
+    .modal-view.open { display:flex; }
+    #viewContent { max-height: 60vh; overflow-y: auto; line-height:1.6; margin:12px 0; }
+    .modal-actions { display:flex; justify-content: space-between; margin-top:12px; }
+
+    /* textarea 개선 */
+    #content {
+      width: 100%;
+      flex:1;
+      min-height: 300px;
+      max-height: 70vh;
+      overflow-y: auto;
+      resize: vertical;
+      line-height: 1.6;
+    }
+
+    .btn { padding: 10px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.14); background: transparent; color: var(--text); cursor: pointer; }
+    .btn.primary { background: linear-gradient(135deg, var(--accent-2), #16a34a); color: white; }
+
+    .toast { position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%); background: #1d232f;
+      color: var(--text); padding: 10px 14px; border-radius: 12px; opacity: 0; transition: all .25s ease; }
+    .toast.show { opacity: 1; }
+
+    @media (max-width:600px){
+      .sheet { width: 95%; max-height: 90vh; }
+      #content { min-height:200px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="wrap"><h1>오픈 보드</h1></header>
+  <main class="wrap">
+    <section id="board" class="board"></section>
+    <div id="emptyState" class="empty">아직 글이 없어요.</div>
+  </main>
+  <button id="fab" class="fab">✎</button>
+  <div id="backdrop" class="backdrop"></div>
+
+  <!-- 글쓰기 모달 -->
+  <aside id="sheet" class="sheet">
+    <div class="sheet-inner">
+      <h2>새 글 쓰기</h2>
+      <form id="postForm">
+        <input id="title" type="text" placeholder="제목" required>
+        <input id="nick" type="text" placeholder="닉네임" required>
+        <textarea id="content" placeholder="내용" required></textarea>
+        <div class="actions" style="margin-top:auto;display:flex;justify-content:flex-end;gap:10px;">
+          <button type="button" class="btn" id="cancelBtn">취소</button>
+          <button type="submit" class="btn primary">올리기</button>
+        </div>
+      </form>
+    </div>
+  </aside>
+
+  <!-- 글 보기 모달 -->
+  <div id="viewModal" class="modal-view">
+    <h2 id="viewTitle"></h2>
+    <div id="viewContent"></div>
+    <div id="viewMeta" class="meta"></div>
+    <div class="modal-actions">
+      <button class="btn" id="closeViewBtn">닫기</button>
+      <button class="btn" id="deleteBtn" style="color:#f87171">삭제</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">글이 등록되었습니다.</div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // 🔹 여기를 본인 Firebase 설정으로 바꿔주세요
+    const firebaseConfig = {
+      apiKey: "AIzaSyBr3Z2Af6ee4Ag1NQYTm-ooUeqOOnuEu3I",
+      authDomain: "open-board-448e0.firebaseapp.com",
+      projectId: "open-board-448e0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const el = (s)=>document.querySelector(s);
+    const board=el('#board'), empty=el('#emptyState'), fab=el('#fab'),
+          sheet=el('#sheet'), backdrop=el('#backdrop'), form=el('#postForm'),
+          titleInput=el('#title'), nickInput=el('#nick'), contentInput=el('#content'),
+          cancelBtn=el('#cancelBtn'), toast=el('#toast');
+    const viewModal=el('#viewModal'), closeViewBtn=el('#closeViewBtn'), deleteBtn=el('#deleteBtn');
+    let currentPostId=null;
+    let posts=[];
+
+    const escapeHTML=(str)=>str.replace(/[&<>"']/g,(ch)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[ch]));
+    function fmtTime(iso){const d=new Date(iso);const pad=n=>String(n).padStart(2,'0');return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;}
+
+    async function loadPosts(){
+      const q = query(collection(db,"posts"), orderBy("createdAt","desc"));
+      const snap = await getDocs(q);
+      posts=[];
+      snap.forEach(docSnap=>{
+        posts.push({id:docSnap.id, ...docSnap.data()});
+      });
+      render();
+    }
+
+    async function addPost(title,nick,content){
+      await addDoc(collection(db,"posts"),{title,nick,content,createdAt:new Date().toISOString()});
+      loadPosts();
+      showToast("글이 등록되었습니다.");
+    }
+
+    async function deletePost(id){
+      await deleteDoc(doc(db,"posts",id));
+      loadPosts();
+      showToast("글이 삭제되었습니다.");
+    }
+
+    function render(){
+      board.innerHTML='';
+      if(!posts.length){empty.style.display='block';return;}
+      empty.style.display='none';
+      posts.forEach(p=>{
+        const card=document.createElement('article');
+        card.className='card';
+        card.innerHTML=`<div class="title">${escapeHTML(p.title)}</div>
+          <div class="meta"><span>by ${escapeHTML(p.nick)}</span><time>${fmtTime(p.createdAt)}</time></div>`;
+        card.addEventListener('click',()=>openView(p.id));
+        board.appendChild(card);
+      });
+    }
+
+    function openSheet(){sheet.classList.add('open');backdrop.classList.add('show');}
+    function closeSheet(){sheet.classList.remove('open');backdrop.classList.remove('show');form.reset();}
+    function openView(id){const p=posts.find(x=>x.id===id);if(!p)return;currentPostId=id;
+      el('#viewTitle').textContent=p.title;
+      el('#viewContent').textContent=p.content;
+      el('#viewMeta').textContent=`by ${p.nick} • ${fmtTime(p.createdAt)}`;
+      viewModal.classList.add('open');backdrop.classList.add('show');}
+    function closeView(){currentPostId=null;viewModal.classList.remove('open');backdrop.classList.remove('show');}
+
+    closeViewBtn.addEventListener('click',closeView);
+    deleteBtn.addEventListener('click',()=>{if(currentPostId) deletePost(currentPostId);closeView();});
+    fab.addEventListener('click',openSheet);
+    backdrop.addEventListener('click',()=>{closeSheet();closeView();});
+    cancelBtn.addEventListener('click',closeSheet);
+    form.addEventListener('submit',e=>{e.preventDefault();const t=titleInput.value.trim(),n=nickInput.value.trim(),c=contentInput.value.trim();if(!t||!n||!c)return;addPost(t,n,c);closeSheet();});
+
+    function showToast(msg){toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1600);}
+
+    loadPosts();
+  </script>
+</body>
+</html>
