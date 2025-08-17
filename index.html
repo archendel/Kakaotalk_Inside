@@ -44,7 +44,7 @@
       backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 60; }
     .backdrop.show { opacity: 1; pointer-events: auto; }
 
-    /* 글쓰기 모달 중앙 */
+    /* 글쓰기 모달 */
     .sheet { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
       z-index: 70; display: none; width: 95%; max-width: 800px; max-height: 90vh; }
     .sheet.open { display: block; }
@@ -116,6 +116,18 @@
     <h2 id="viewTitle"></h2>
     <div id="viewContent"></div>
     <div id="viewMeta" class="meta"></div>
+
+    <!-- 댓글 영역 -->
+    <div id="commentSection" style="margin-top:20px;">
+      <h3 style="font-size:15px;margin-bottom:8px;">댓글</h3>
+      <div id="commentList" style="max-height:200px;overflow-y:auto;margin-bottom:10px;"></div>
+      <form id="commentForm" style="display:flex;flex-direction:column;gap:6px;">
+        <input id="commentNick" type="text" placeholder="닉네임" required>
+        <textarea id="commentText" placeholder="댓글 내용" required></textarea>
+        <button type="submit" class="btn primary">댓글 달기</button>
+      </form>
+    </div>
+
     <div class="modal-actions">
       <button class="btn" id="closeViewBtn">닫기</button>
       <button class="btn" id="deleteBtn" style="color:#f87171">삭제</button>
@@ -129,7 +141,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // 🔹 Firebase 설정
+    // Firebase 설정
     const firebaseConfig = {
       apiKey: "AIzaSyBr3Z2Af6ee4Ag1NQYTm-ooUeqOOnuEu3I",
       authDomain: "open-board-448e0.firebaseapp.com",
@@ -145,6 +157,11 @@
           titleInput=el('#title'), nickInput=el('#nick'), contentInput=el('#content'),
           cancelBtn=el('#cancelBtn'), toast=el('#toast');
     const viewModal=el('#viewModal'), closeViewBtn=el('#closeViewBtn'), deleteBtn=el('#deleteBtn');
+    const commentForm = el('#commentForm');
+    const commentNick = el('#commentNick');
+    const commentText = el('#commentText');
+    const commentList = el('#commentList');
+
     let currentPostId=null;
     let posts=[];
 
@@ -168,9 +185,15 @@
     }
 
     async function deletePost(id){
+      // 댓글 먼저 삭제
+      const commentsSnap = await getDocs(collection(db, "posts", id, "comments"));
+      for(const c of commentsSnap.docs){
+        await deleteDoc(doc(db, "posts", id, "comments", c.id));
+      }
+      // 글 삭제
       await deleteDoc(doc(db,"posts",id));
       loadPosts();
-      showToast("글이 삭제되었습니다.");
+      showToast("글과 댓글이 모두 삭제되었습니다.");
     }
 
     function render(){
@@ -187,13 +210,49 @@
       });
     }
 
+    // 댓글 관련 함수
+    async function loadComments(postId){
+      commentList.innerHTML = '<p style="color:var(--muted);">불러오는 중...</p>';
+      const q = query(collection(db, "posts", postId, "comments"), orderBy("createdAt", "asc"));
+      const snap = await getDocs(q);
+      commentList.innerHTML = '';
+      snap.forEach(docSnap=>{
+        const c = docSnap.data();
+        const item = document.createElement('div');
+        item.style.padding="6px 8px";
+        item.style.borderBottom="1px solid rgba(255,255,255,0.1)";
+        item.innerHTML = `<b>${escapeHTML(c.nick)}</b>: ${escapeHTML(c.text)} 
+          <div style="font-size:11px;color:var(--muted)">${fmtTime(c.createdAt)}</div>`;
+        commentList.appendChild(item);
+      });
+    }
+
+    async function addComment(postId, nick, text){
+      await addDoc(collection(db,"posts",postId,"comments"),{
+        nick, text, createdAt:new Date().toISOString()
+      });
+      loadComments(postId);
+      commentForm.reset();
+    }
+
+    commentForm.addEventListener("submit", e=>{
+      e.preventDefault();
+      const n = commentNick.value.trim();
+      const t = commentText.value.trim();
+      if(!n || !t) return;
+      addComment(currentPostId, n, t);
+    });
+
     function openSheet(){sheet.classList.add('open');backdrop.classList.add('show');}
     function closeSheet(){sheet.classList.remove('open');backdrop.classList.remove('show');form.reset();}
-    function openView(id){const p=posts.find(x=>x.id===id);if(!p)return;currentPostId=id;
+    function openView(id){
+      const p=posts.find(x=>x.id===id);if(!p)return;currentPostId=id;
       el('#viewTitle').textContent=p.title;
       el('#viewContent').textContent=p.content;
       el('#viewMeta').textContent=`by ${p.nick} • ${fmtTime(p.createdAt)}`;
-      viewModal.classList.add('open');backdrop.classList.add('show');}
+      viewModal.classList.add('open');backdrop.classList.add('show');
+      loadComments(id); // 댓글 불러오기
+    }
     function closeView(){currentPostId=null;viewModal.classList.remove('open');backdrop.classList.remove('show');}
 
     closeViewBtn.addEventListener('click',closeView);
@@ -202,7 +261,7 @@
     backdrop.addEventListener('click',()=>{closeSheet();closeView();});
     cancelBtn.addEventListener('click',closeSheet);
 
-    // 🔹 제목/닉네임 글자수 제한 (25자)
+    // 제목/닉네임 글자수 제한
     titleInput.addEventListener("input", () => {
       if (titleInput.value.length > 25) {
         titleInput.value = titleInput.value.slice(0, 25);
