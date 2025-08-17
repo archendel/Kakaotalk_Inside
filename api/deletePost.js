@@ -1,7 +1,8 @@
+// api/deletePost.js
 import { initializeApp, applicationDefault } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
-// Firebase Admin 초기화 (한 번만 실행되도록)
+// Firebase Admin SDK 초기화 (이미 초기화된 경우 무시)
 const app = initializeApp({
   credential: applicationDefault(),
 });
@@ -14,15 +15,15 @@ export default async function handler(req, res) {
 
   const { postId, password } = req.body;
 
-  // 🔑 관리자 비밀번호 확인
+  // 🔑 관리자 비밀번호 검증 (Vercel 환경 변수)
   if (password !== process.env.ADMIN_PASSWORD) {
     return res.status(403).json({ success: false, error: "Invalid password" });
   }
 
   try {
-    // 댓글 삭제
-    const comments = await db.collection("posts").doc(postId).collection("comments").get();
-    for (const c of comments.docs) {
+    // 댓글 먼저 삭제
+    const commentsSnap = await db.collection("posts").doc(postId).collection("comments").get();
+    for (const c of commentsSnap.docs) {
       await c.ref.delete();
     }
 
