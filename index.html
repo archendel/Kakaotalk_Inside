@@ -148,7 +148,7 @@
     let currentPostId=null;
     let posts=[];
 
-    const escapeHTML=(str)=>str.replace(/[&<>"']/g,(ch)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[ch]));
+    const escapeHTML=(str)=>str;
     function fmtTime(iso){const d=new Date(iso);const pad=n=>String(n).padStart(2,'0');return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;}
 
     async function loadPosts(){
